@@ -33,6 +33,10 @@ public class HiloConexion extends Thread{
                 HiloReceptorLluvia receptorL = new HiloReceptorLluvia(s);
                 receptorL.start();
                 break;
+            case "temporizador":
+                System.out.println("---Conectado al temporizador!---");
+                HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s);
+                receptorTiempo.run();
             default:
                 System.out.println("Disposivo no reconocido");
                 break;
