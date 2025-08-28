@@ -9,24 +9,16 @@ public class HiloReceptorTiempo implements Runnable{
 
     private Socket clienteTiempo;
     private final BufferedReader br;
-    private int minutos;
-    private int segundos;
+    private int totalSegundos;
     private RuntimeException runtimeException;
 
-    public int getMinutos() {
-        return minutos;
+
+    public int getTotalSegundos() {
+        return totalSegundos;
     }
 
-    public void setMinutos(int minutos) {
-        this.minutos = minutos;
-    }
-
-    public int getSegundos() {
-        return segundos;
-    }
-
-    public void setSegundos(int segundos) {
-        this.segundos = segundos;
+    public void setTotalSegundos(int totalSegundos) {
+        this.totalSegundos = totalSegundos;
     }
 
     public HiloReceptorTiempo(Socket clienteTemporizador) {
@@ -43,6 +35,9 @@ public class HiloReceptorTiempo implements Runnable{
         while (true){
             try {
                 String entrada = br.readLine();
+                totalSegundos = Integer.parseInt(entrada);
+                System.out.println("Segundos restantes: " + totalSegundos);
+
             } catch (IOException e) {
                 throw runtimeException;
         }
