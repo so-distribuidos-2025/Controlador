@@ -28,11 +28,6 @@ public class HiloConexion extends Thread{
                 HiloReceptorTemperatura receptorT = new HiloReceptorTemperatura(s);
                 receptorT.start();
                 break;
-            case "temporizador":
-                System.out.println("---Conectado al temporizador---");
-                HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s);
-                receptorTiempo.run();
-                break;
             default:
                 System.out.println("Disposivo no reconocido");
                 break;
