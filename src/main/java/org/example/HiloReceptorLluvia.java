@@ -9,9 +9,9 @@ import java.net.Socket;
 public class HiloReceptorLluvia extends Thread{
     private Socket clientelluvia;
     private final BufferedReader br;
-    private int lluvia;
+    private double lluvia;
 
-    public int getlluvia() {
+    public double getlluvia() {
         return lluvia;
     }
 
@@ -31,8 +31,8 @@ public class HiloReceptorLluvia extends Thread{
     public void run(){
         while (true){
             try {
-                int entrada = br.read();
-                lluvia = entrada;
+                String entrada = br.readLine();
+                lluvia = Double.parseDouble(entrada);
                 System.out.println(lluvia);
                 sleep(1000);
             } catch (IOException e) {
