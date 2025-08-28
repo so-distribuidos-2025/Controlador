@@ -28,6 +28,11 @@ public class HiloConexion extends Thread{
                 HiloReceptorTemperatura receptorT = new HiloReceptorTemperatura(s);
                 receptorT.start();
                 break;
+            case "lluvia":
+                System.out.println("---Conectado sensor lluvia---");
+                HiloReceptorLluvia receptorL = new HiloReceptorLluvia(s);
+                receptorL.start();
+                break;
             default:
                 System.out.println("Disposivo no reconocido");
                 break;
