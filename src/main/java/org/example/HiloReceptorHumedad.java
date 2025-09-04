@@ -4,11 +4,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HiloReceptorHumedad extends Thread{
     private Socket clienteHumedad;
     private final BufferedReader br;
     private double humedad;
+    ConcurrentHashMap<String, Object> estado;
+    private int id;
+    private double[] humedadArray;
 
     public double getHumedad() {
         return humedad;
@@ -18,8 +22,10 @@ public class HiloReceptorHumedad extends Thread{
         this.humedad = humedad;
     }
 
-    public HiloReceptorHumedad(Socket clienteHumedad) {
+    public HiloReceptorHumedad(Socket clienteHumedad, ConcurrentHashMap<String, Object> estado, int id) {
         this.clienteHumedad = clienteHumedad;
+        this.id = id;
+        this.estado = estado;
         try {
             this.br = new BufferedReader(new InputStreamReader(clienteHumedad.getInputStream()));
         } catch (IOException e) {
@@ -32,7 +38,8 @@ public class HiloReceptorHumedad extends Thread{
             try {
                 String entrada = br.readLine();
                 humedad = Double.parseDouble(entrada);
-                System.out.println(humedad);
+                humedadArray = (double[]) estado.get("humedadArray");
+
                 sleep(1000);
             } catch (IOException e) {
                 throw new RuntimeException(e);

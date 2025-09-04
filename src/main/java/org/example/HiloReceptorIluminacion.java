@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import static java.lang.Thread.sleep;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -18,18 +19,20 @@ public class HiloReceptorIluminacion extends Thread {
     
     private Socket clienteIluminacion;
     private final BufferedReader br;
-    private float iluminacion;
+    private double iluminacion;
+    ConcurrentHashMap<String, Object> estado;
 
-    public float getIlumicacion() {
+    public double getIlumicacion() {
         return iluminacion;
     }
 
-    public void setIlumicacion(float iluminacion) {
+    public void setIlumicacion(double iluminacion) {
         this.iluminacion = iluminacion;
     }
 
-    public HiloReceptorIluminacion(Socket clienteIluminacion) {
+    public HiloReceptorIluminacion(Socket clienteIluminacion, ConcurrentHashMap<String, Object> estado) {
         this.clienteIluminacion = clienteIluminacion;
+        this.estado = estado;
         try {
             this.br = new BufferedReader(new InputStreamReader(clienteIluminacion.getInputStream()));
         } catch (IOException e) {
@@ -41,8 +44,8 @@ public class HiloReceptorIluminacion extends Thread {
         while (true){
             try {
                 String entrada = br.readLine();
-                iluminacion = Float.parseFloat(entrada);
-                System.out.println(iluminacion);
+                iluminacion = Double.parseDouble(entrada);
+                estado.put("radiacion", iluminacion);
                 sleep(1000);
             } catch (IOException e) {
                 throw new RuntimeException(e);

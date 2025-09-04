@@ -5,22 +5,25 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HiloReceptorTemperatura extends Thread{
     private Socket clienteTemperatura;
     private final BufferedReader br;
-    private float temperatura;
+    private double temperatura;
+    ConcurrentHashMap<String, Object> estado;
 
-    public float getTemperatura() {
+    public double getTemperatura() {
         return temperatura;
     }
 
-    public void setTemperatura(float temperatura) {
+    public void setTemperatura(double temperatura) {
         this.temperatura = temperatura;
     }
 
-    public HiloReceptorTemperatura(Socket clienteTemperatura) {
+    public HiloReceptorTemperatura(Socket clienteTemperatura, ConcurrentHashMap<String, Object> estado) {
         this.clienteTemperatura = clienteTemperatura;
+        this.estado = estado;
         try {
             this.br = new BufferedReader(new InputStreamReader(clienteTemperatura.getInputStream()));
         } catch (IOException e) {
@@ -32,8 +35,8 @@ public class HiloReceptorTemperatura extends Thread{
         while (true){
             try {
                 String entrada = br.readLine();
-                temperatura = Float.parseFloat(entrada);
-                System.out.println(temperatura);
+                temperatura = Double.parseDouble(entrada);
+                estado.put("temperatura", temperatura);
                 sleep(1000);
             } catch (IOException e) {
                 throw new RuntimeException(e);
