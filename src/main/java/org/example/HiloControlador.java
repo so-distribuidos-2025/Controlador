@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class HiloControlador extends Thread {
     ConcurrentHashMap<String, Object> estado;
-    private ConcurrentHashMap<String, Double> humedadades;
+    private ConcurrentHashMap<String, Double> humedades;
     private ConcurrentHashMap<String, Boolean> electrovalvulas;
     private double temperatura;
     private double radiacion;
@@ -16,16 +16,20 @@ public class HiloControlador extends Thread {
         this.temperatura = 0.0;
         this.radiacion = 0.0;
         this.lluvia = false;
+        this.humedades = new ConcurrentHashMap<String, Double>();
+        this.estado.put("humedades", humedades);
         for (int i = 0; i < 5; i++) {
-            this.humedadades.put(String.valueOf(i),0.0);
+            this.humedades.put(String.valueOf(i), 0.0);
         }
+        this.electrovalvulas = new ConcurrentHashMap<String, Boolean>();
+        this.estado.put("electrovalvulas", humedades);
         for (int i = 0; i < 7; i++) {
-            this.electrovalvulas.put(String.valueOf(i),false);
+            this.electrovalvulas.put(String.valueOf(i), false);
         }
         this.estado.put("temperatura", 0.0);
         this.estado.put("radiacion", 0.0);
         this.estado.put("lluvia", false);
-        this.estado.put("humedadArray", this.humedadades);
+        this.estado.put("humedadArray", this.humedades);
     }
 
     public void run() {
@@ -35,7 +39,7 @@ public class HiloControlador extends Thread {
                 this.radiacion = (double) this.estado.get("radiacion");
                 this.lluvia = (boolean) this.estado.get("lluvia");
                 this.electrovalvulas = (ConcurrentHashMap<String, Boolean>) this.estado.get("electrovalvulas");
-                this.humedadades = (ConcurrentHashMap<String, Double>) this.estado.get("humedadades");
+                this.humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
 
                 //Calcular INR
 
@@ -47,8 +51,15 @@ public class HiloControlador extends Thread {
                 System.out.printf("  Lloviendo   : %s%n", this.lluvia ? "Sí" : "No");
                 System.out.println("-----------------------------------------");
 
-                double[] humedadArray = (double[]) this.estado.get("humedadArray");
-                System.out.printf("  Humedad     : %s%%%n", Arrays.toString(humedadArray));
+                for (int i = 0; i < 5; i++) {
+
+                    if (humedades.containsKey(String.valueOf(i))) {
+                        System.out.printf("Humedad parcela %d = %.2f \n", i, humedades.get(String.valueOf(i)));
+                    }else{
+                        System.out.printf("Humedad parcela %d no valida \n", i);
+                    }
+
+                }
 
                 System.out.println("-------------------------");
                 sleep(1000);

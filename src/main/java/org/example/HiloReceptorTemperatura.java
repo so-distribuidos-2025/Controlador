@@ -13,6 +13,7 @@ public class HiloReceptorTemperatura extends Thread{
     private double temperatura;
     ConcurrentHashMap<String, Object> estado;
 
+
     public double getTemperatura() {
         return temperatura;
     }

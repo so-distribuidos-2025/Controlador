@@ -6,13 +6,13 @@ import java.io.InputStreamReader;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class HiloReceptorHumedad extends Thread{
+public class HiloReceptorHumedad extends Thread {
     private Socket clienteHumedad;
     private final BufferedReader br;
     private double humedad;
     ConcurrentHashMap<String, Object> estado;
     private int id;
-    private double[] humedadArray;
+    ConcurrentHashMap<String, Double> humedades;
 
     public double getHumedad() {
         return humedad;
@@ -33,12 +33,14 @@ public class HiloReceptorHumedad extends Thread{
         }
     }
 
-    public void run(){
-        while (true){
+    public void run() {
+        while (true) {
             try {
                 String entrada = br.readLine();
                 humedad = Double.parseDouble(entrada);
-                humedadArray = (double[]) estado.get("humedadArray");
+                humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
+
+                humedades.put(String.valueOf(id), humedad);
 
                 sleep(1000);
             } catch (IOException e) {
