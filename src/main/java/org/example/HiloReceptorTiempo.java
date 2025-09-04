@@ -13,6 +13,8 @@ public class HiloReceptorTiempo implements Runnable{
     private int totalSegundos;
     private RuntimeException runtimeException;
     ConcurrentHashMap<String, Object> estado;
+    ConcurrentHashMap<String, Integer> temporizadores;
+    private int id;
 
 
     public int getTotalSegundos() {
@@ -23,8 +25,10 @@ public class HiloReceptorTiempo implements Runnable{
         this.totalSegundos = totalSegundos;
     }
 
-    public HiloReceptorTiempo(Socket clienteTemporizador) {
+    public HiloReceptorTiempo(Socket clienteTemporizador, ConcurrentHashMap<String, Object> estado) {
         this.clienteTiempo = clienteTemporizador;
+        this.estado = estado;
+        this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
         try {
             this.br = new BufferedReader(new InputStreamReader(clienteTemporizador.getInputStream()));
         } catch (IOException e) {
@@ -36,10 +40,12 @@ public class HiloReceptorTiempo implements Runnable{
     public void run() {
         while (true){
             try {
-                String entrada = br.readLine();
-                totalSegundos = Integer.parseInt(entrada);
-                System.out.println("Segundos restantes: " + totalSegundos);
-
+                totalSegundos = (Integer) this.temporizadores.get(String.valueOf(this.id));
+                if (totalSegundos != 0) {
+                    String entrada = br.readLine();
+                    totalSegundos = Integer.parseInt(entrada);
+                    System.out.printf("temporizador %d parado\n", id);
+                }
             } catch (IOException e) {
                 throw runtimeException;
         }

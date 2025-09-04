@@ -20,10 +20,11 @@ public class HiloConexion extends Thread{
         try {
         BufferedReader br = new BufferedReader(new InputStreamReader(s.getInputStream()));
         tipoDispositivo = br.readLine();
+            int id;
         switch (tipoDispositivo){
             case "humedad":
-                int id = Integer.parseInt(br.readLine());
-                System.out.println("---Conectado sensor humedad---");
+                id = Integer.parseInt(br.readLine()); //Leer id
+                System.out.printf("---Conectado sensor humedad %d---\n", id);
                 HiloReceptorHumedad receptor = new HiloReceptorHumedad(s, estado, id);
                 receptor.start();
                 break;
@@ -38,13 +39,17 @@ public class HiloConexion extends Thread{
                 receptorL.start();
                 break;
             case "temporizador":
-                System.out.println("---Conectado al temporizador!---");
-                HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s);
+                id = Integer.parseInt(br.readLine()); //Leer id
+                System.out.printf("---Conectado temporizador %d---\n", id);
+                HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s, estado);
                 receptorTiempo.run();
             case "iluminacion":
                 System.out.println("---Conectado sensor iluminacion---");
                 HiloReceptorIluminacion receptorIluminacion = new HiloReceptorIluminacion(s, estado);
                 receptorIluminacion.run();
+            case "electrovalvula":
+                id = Integer.parseInt(br.readLine()); //Leer id
+                System.out.printf("---Conectado electrovalvula %d---\n", id);
             default:
                 System.out.println("Disposivo no reconocido");
                 break;

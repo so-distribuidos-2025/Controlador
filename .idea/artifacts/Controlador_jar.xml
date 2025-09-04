@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Controlador:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/Controlador_jar</output-path>
+    <root id="archive" name="Controlador.jar">
+      <element id="module-output" name="Controlador" />
+    </root>
+  </artifact>
+</component>
