@@ -1,27 +1,49 @@
 package org.example;
 
-import javax.swing.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class HiloReceptorTemperatura extends Thread{
+/**
+ * Hilo encargado de recibir datos del sensor de temperatura.
+ *
+ * <p>Este hilo se conecta a un cliente que envía valores de temperatura
+ * en formato numérico (double). Los datos recibidos se almacenan en el
+ * {@link ConcurrentHashMap} de estado compartido bajo la clave {@code "temperatura"}.</p>
+ */
+public class HiloReceptorTemperatura extends Thread {
+
     private Socket clienteTemperatura;
     private final BufferedReader br;
     private double temperatura;
-    ConcurrentHashMap<String, Object> estado;
+    private ConcurrentHashMap<String, Object> estado;
 
-
+    /**
+     * Devuelve el último valor de temperatura recibido.
+     *
+     * @return valor de temperatura en grados Celsius
+     */
     public double getTemperatura() {
         return temperatura;
     }
 
+    /**
+     * Establece manualmente el valor de la temperatura.
+     *
+     * @param temperatura nuevo valor de temperatura en grados Celsius
+     */
     public void setTemperatura(double temperatura) {
         this.temperatura = temperatura;
     }
 
+    /**
+     * Constructor de la clase.
+     *
+     * @param clienteTemperatura socket del cliente que envía los datos de temperatura
+     * @param estado estructura compartida con el estado global del sistema
+     */
     public HiloReceptorTemperatura(Socket clienteTemperatura, ConcurrentHashMap<String, Object> estado) {
         this.clienteTemperatura = clienteTemperatura;
         this.estado = estado;
@@ -32,8 +54,14 @@ public class HiloReceptorTemperatura extends Thread{
         }
     }
 
-    public void run(){
-        while (true){
+    /**
+     * Bucle principal del hilo.
+     *
+     * <p>Lee continuamente datos del socket, los convierte a {@code double}
+     * y actualiza el mapa compartido de estado bajo la clave {@code "temperatura"}.</p>
+     */
+    public void run() {
+        while (true) {
             try {
                 String entrada = br.readLine();
                 temperatura = Double.parseDouble(entrada);
@@ -45,6 +73,5 @@ public class HiloReceptorTemperatura extends Thread{
                 throw new RuntimeException(e);
             }
         }
-
     }
 }

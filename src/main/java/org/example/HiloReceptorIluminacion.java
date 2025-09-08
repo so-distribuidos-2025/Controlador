@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package org.example;
 
 import java.io.BufferedReader;
@@ -12,24 +8,43 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * Hilo encargado de recibir datos de un sensor de iluminación.
  *
- * @author Anita
+ * <p>Este hilo se conecta a un cliente que envía valores de iluminación
+ * en formato numérico (double). Los datos recibidos se almacenan en el
+ * {@link ConcurrentHashMap} de estado compartido bajo la clave {@code "radiacion"}.</p>
  */
 public class HiloReceptorIluminacion extends Thread {
-    
+
     private Socket clienteIluminacion;
     private final BufferedReader br;
     private double iluminacion;
-    ConcurrentHashMap<String, Object> estado;
+    private ConcurrentHashMap<String, Object> estado;
 
+    /**
+     * Devuelve el último valor de iluminación recibido.
+     *
+     * @return valor de iluminación en W/m²
+     */
     public double getIlumicacion() {
         return iluminacion;
     }
 
+    /**
+     * Establece manualmente el valor de iluminación.
+     *
+     * @param iluminacion nuevo valor de iluminación
+     */
     public void setIlumicacion(double iluminacion) {
         this.iluminacion = iluminacion;
     }
 
+    /**
+     * Constructor de la clase.
+     *
+     * @param clienteIluminacion socket del cliente que envía los datos de iluminación
+     * @param estado estructura compartida con el estado global del sistema
+     */
     public HiloReceptorIluminacion(Socket clienteIluminacion, ConcurrentHashMap<String, Object> estado) {
         this.clienteIluminacion = clienteIluminacion;
         this.estado = estado;
@@ -40,8 +55,14 @@ public class HiloReceptorIluminacion extends Thread {
         }
     }
 
-    public void run(){
-        while (true){
+    /**
+     * Bucle principal del hilo.
+     *
+     * <p>Lee continuamente datos del socket, los convierte a {@code double}
+     * y actualiza el mapa compartido de estado bajo la clave {@code "radiacion"}.</p>
+     */
+    public void run() {
+        while (true) {
             try {
                 String entrada = br.readLine();
                 iluminacion = Double.parseDouble(entrada);
@@ -53,7 +74,6 @@ public class HiloReceptorIluminacion extends Thread {
                 throw new RuntimeException(e);
             }
         }
-
     }
-    
 }
+

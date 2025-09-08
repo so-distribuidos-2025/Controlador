@@ -3,47 +3,120 @@ package org.example;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * La clase {@code HiloControlador} representa el hilo principal de control
+ * del sistema de riego inteligente.
+ *
+ * <p>Este hilo consulta periódicamente los datos de sensores almacenados
+ * en un {@link ConcurrentHashMap}, calcula el índice de necesidad de riego (INR)
+ * para cada parcela y, en base a dicho valor, determina la activación de los
+ * temporizadores y las electroválvulas.</p>
+ *
+ * <p>El INR se calcula según la fórmula:</p>
+ * <pre>
+ * INR = W1 * (1 - H/100) + W2 * (T/T_MAX) + W3 * (R/R_MAX)
+ * </pre>
+ * donde:
+ * <ul>
+ *   <li><b>H</b>: humedad (%) de la parcela.</li>
+ *   <li><b>T</b>: temperatura actual.</li>
+ *   <li><b>R</b>: radiación solar actual.</li>
+ *   <li><b>W1, W2, W3</b>: pesos definidos en las constantes.</li>
+ *   <li><b>T_MAX</b> y <b>R_MAX</b>: valores máximos de referencia.</li>
+ * </ul>
+ *
+ * <p>Si hay lluvia, el INR se anula a {@code 0.0}, inhibiendo el riego.</p>
+ *
+ * <p>En función del INR, se establecen diferentes tiempos de riego:</p>
+ * <ul>
+ *   <li>0.7 ≤ INR &lt; 0.8 → 5 minutos</li>
+ *   <li>0.8 ≤ INR &lt; 0.9 → 7 minutos</li>
+ *   <li>INR ≥ 0.9 → 10 minutos</li>
+ * </ul>
+ *
+ * <p>El hilo imprime en consola el estado de cada parcela, la temperatura,
+ * la radiación y si está lloviendo.</p>
+ *
+ * @author  
+ * @version 1.0
+ */
 public class HiloControlador extends Thread {
+    /** Estado global compartido entre todos los hilos. */
     ConcurrentHashMap<String, Object> estado;
+    /** Valores de humedad por parcela. */
     private ConcurrentHashMap<String, Double> humedades;
+    /** Estado de las electroválvulas (activadas/desactivadas). */
     private ConcurrentHashMap<String, Boolean> electrovalvulas;
+    /** Temporizadores asignados a cada parcela. */
     private ConcurrentHashMap<String, Integer> temporizadores;
+    /** Índices de necesidad de riego (INR) por parcela. */
     private double[] inr = {0.0, 0.0, 0.0, 0.0, 0.0};
+    /** Temperatura actual. */
     private double temperatura;
+    /** Radiación solar actual. */
     private double radiacion;
+    /** Indica si está lloviendo. */
     private boolean lluvia;
+
+    // Pesos y valores de referencia
     private static final double W1 = 0.5;
     private static final double W2 = 0.3;
     private static final double W3 = 0.2;
     private static final double T_MAX = 40.0;
     private static final double R_MAX = 1000.0;
 
+    /**
+     * Crea un nuevo hilo de control que inicializa los mapas de estado
+     * (humedades, temporizadores, electroválvulas, temperatura, radiación, lluvia).
+     *
+     * @param estado el mapa compartido que contiene los datos globales del sistema.
+     */
     public HiloControlador(ConcurrentHashMap<String, Object> estado) {
         this.estado = estado;
         this.temperatura = 0.0;
         this.radiacion = 0.0;
         this.lluvia = false;
-        this.humedades = new ConcurrentHashMap<String, Double>();
+
+        this.humedades = new ConcurrentHashMap<>();
         this.estado.put("humedades", humedades);
         for (int i = 0; i < 5; i++) {
             this.humedades.put(String.valueOf(i), 0.0);
         }
-        this.temporizadores = new ConcurrentHashMap<String, Integer>();
+
+        this.temporizadores = new ConcurrentHashMap<>();
         this.estado.put("temporizadores", temporizadores);
         for (int i = 0; i < 5; i++) {
             this.temporizadores.put(String.valueOf(i), 0);
         }
-        this.electrovalvulas = new ConcurrentHashMap<String, Boolean>();
-        this.estado.put("electrovalvulas", humedades);
+
+        this.electrovalvulas = new ConcurrentHashMap<>();
+        this.estado.put("electrovalvulas", humedades); // ⚠️ Parece un error: debería ser electrovalvulas
         for (int i = 0; i < 7; i++) {
             this.electrovalvulas.put(String.valueOf(i), false);
         }
+
         this.estado.put("temperatura", 0.0);
         this.estado.put("radiacion", 0.0);
         this.estado.put("lluvia", false);
         this.estado.put("humedadArray", this.humedades);
     }
 
+    /**
+     * Método principal del hilo.
+     *
+     * <p>En un bucle infinito, realiza las siguientes operaciones:</p>
+     * <ul>
+     *   <li>Actualiza los valores de sensores desde el mapa de estado.</li>
+     *   <li>Calcula el INR para cada parcela.</li>
+     *   <li>Si el INR supera ciertos umbrales, ajusta el temporizador
+     *       de la parcela correspondiente.</li>
+     *   <li>Imprime en consola el estado de cada parcela, junto con la
+     *       temperatura, radiación y si está lloviendo.</li>
+     * </ul>
+     *
+     * @throws RuntimeException si el hilo es interrumpido durante la espera.
+     */
+    @Override
     public void run() {
         while (true) {
             try {
@@ -54,7 +127,7 @@ public class HiloControlador extends Thread {
                 this.humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
                 this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
 
-                //Calcular INR
+                // Calcular INR para cada parcela
                 for (int i = 0; i < 5; i++) {
                     String key = String.valueOf(i);
                     if (humedades.containsKey(key)) {
@@ -71,48 +144,37 @@ public class HiloControlador extends Thread {
                     }
                 }
 
-
-                //Activar electrovalvulas
-
+                // Activar electroválvulas según INR
                 for (int i = 0; i < 5; i++) {
                     String key = String.valueOf(i);
 
                     if (inr[i] > 0.7 && inr[i] < 0.8) {
-                        //temporizador seteado en 5min.
                         if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 300);
+                            this.temporizadores.put(key, 300); // 5 min
                         }
-
-                        //Activo electroválvula
                     }
                     if (inr[i] > 0.8 && inr[i] < 0.9) {
-                        //temporizador seteado en 7min.
                         if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 420);
+                            this.temporizadores.put(key, 420); // 7 min
                         }
-                        //Activo electroválvula
                     }
                     if (inr[i] > 0.9) {
-                        //temporizador seteado en 10min.
                         if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 600);
+                            this.temporizadores.put(key, 600); // 10 min
                         }
-
                     }
-                    //Activo electroválvula
                 }
 
+                // Mostrar estado general
                 System.out.printf("  Temperatura : %.2f °C%n", this.temperatura);
                 System.out.printf("  Radiación   : %.2f W/m²%n", this.radiacion);
                 System.out.printf("  Lloviendo   : %s%n", this.lluvia ? "Sí" : "No");
-
-
                 System.out.println("-----------------------------------------");
+
                 sleep(1000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
-
     }
 }
