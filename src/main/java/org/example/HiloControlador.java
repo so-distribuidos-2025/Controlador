@@ -1,7 +1,14 @@
 package org.example;
 
+import org.example.interfaces.IServerRMI;
+
+import java.net.MalformedURLException;
+import java.rmi.Naming;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 
 /**
  * La clase {@code HiloControlador} representa el hilo principal de control
@@ -33,29 +40,46 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>0.8 ≤ INR &lt; 0.9 → 7 minutos</li>
  *   <li>INR ≥ 0.9 → 10 minutos</li>
  * </ul>
+ * Se abren y cierran las electrovavulas segun los temporizadores
  *
  * <p>El hilo imprime en consola el estado de cada parcela, la temperatura,
  * la radiación y si está lloviendo.</p>
  *
- * @author  
+ * @author
  * @version 1.0
  */
 public class HiloControlador extends Thread {
-    /** Estado global compartido entre todos los hilos. */
+    /**
+     * Estado global compartido entre todos los hilos.
+     */
     ConcurrentHashMap<String, Object> estado;
-    /** Valores de humedad por parcela. */
+    /**
+     * Valores de humedad por parcela.
+     */
     private ConcurrentHashMap<String, Double> humedades;
-    /** Estado de las electroválvulas (activadas/desactivadas). */
-    private ConcurrentHashMap<String, Boolean> electrovalvulas;
-    /** Temporizadores asignados a cada parcela. */
+    /**
+     * Servidores RMI de las valvulas
+     */
+    private ArrayList<IServerRMI> electrovalvulas = new ArrayList<>();
+    /**
+     * Temporizadores asignados a cada parcela.
+     */
     private ConcurrentHashMap<String, Integer> temporizadores;
-    /** Índices de necesidad de riego (INR) por parcela. */
+    /**
+     * Índices de necesidad de riego (INR) por parcela.
+     */
     private double[] inr = {0.0, 0.0, 0.0, 0.0, 0.0};
-    /** Temperatura actual. */
+    /**
+     * Temperatura actual.
+     */
     private double temperatura;
-    /** Radiación solar actual. */
+    /**
+     * Radiación solar actual.
+     */
     private double radiacion;
-    /** Indica si está lloviendo. */
+    /**
+     * Indica si está lloviendo.
+     */
     private boolean lluvia;
 
     // Pesos y valores de referencia
@@ -68,6 +92,8 @@ public class HiloControlador extends Thread {
     /**
      * Crea un nuevo hilo de control que inicializa los mapas de estado
      * (humedades, temporizadores, electroválvulas, temperatura, radiación, lluvia).
+     *
+     * Tambien intentan conectarse a los servidores RMI de las valvulas
      *
      * @param estado el mapa compartido que contiene los datos globales del sistema.
      */
@@ -89,10 +115,18 @@ public class HiloControlador extends Thread {
             this.temporizadores.put(String.valueOf(i), 0);
         }
 
-        this.electrovalvulas = new ConcurrentHashMap<>();
-        this.estado.put("electrovalvulas", humedades); // ⚠️ Parece un error: debería ser electrovalvulas
         for (int i = 0; i < 7; i++) {
-            this.electrovalvulas.put(String.valueOf(i), false);
+            try {
+                //Cambiar esto segun la idea de Ana
+                //Identificar las valvulas por puerto
+                int puerto = 21000 + i;
+                String direccionRMI = String.format("rmi://localhost:%d/ServerRMI", puerto);
+                IServerRMI server = (IServerRMI) Naming.lookup(direccionRMI);
+                this.electrovalvulas.add(server); //Revisar que esto no de problemas
+                System.out.println("Conectado a la electrovalvula" + i);
+            } catch (NotBoundException | MalformedURLException | RemoteException e) {
+                System.err.println("Fallo al conectar la electrovalvula " + i + ": " + e.getMessage());
+            }
         }
 
         this.estado.put("temperatura", 0.0);
@@ -123,7 +157,6 @@ public class HiloControlador extends Thread {
                 this.temperatura = (double) this.estado.get("temperatura");
                 this.radiacion = (double) this.estado.get("radiacion");
                 this.lluvia = (boolean) this.estado.get("lluvia");
-                this.electrovalvulas = (ConcurrentHashMap<String, Boolean>) this.estado.get("electrovalvulas");
                 this.humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
                 this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
 
@@ -151,17 +184,25 @@ public class HiloControlador extends Thread {
                     if (inr[i] > 0.7 && inr[i] < 0.8) {
                         if (this.temporizadores.get(key) != 0) {
                             this.temporizadores.put(key, 300); // 5 min
+                            this.electrovalvulas.get(i).abrirValvula();
                         }
                     }
                     if (inr[i] > 0.8 && inr[i] < 0.9) {
                         if (this.temporizadores.get(key) != 0) {
                             this.temporizadores.put(key, 420); // 7 min
+                            this.electrovalvulas.get(i).abrirValvula();
                         }
                     }
                     if (inr[i] > 0.9) {
                         if (this.temporizadores.get(key) != 0) {
                             this.temporizadores.put(key, 600); // 10 min
+                            this.electrovalvulas.get(i).abrirValvula();
                         }
+                    }
+
+                    if (this.temporizadores.get(key) == 0){
+                        //TODO revisar si se puede hacer mejor
+                        this.electrovalvulas.get(i).cerrarValvula();
                     }
                 }
 
@@ -173,6 +214,8 @@ public class HiloControlador extends Thread {
 
                 sleep(1000);
             } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (RemoteException e) {
                 throw new RuntimeException(e);
             }
         }

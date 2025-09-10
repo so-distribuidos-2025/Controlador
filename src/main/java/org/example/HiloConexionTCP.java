@@ -7,7 +7,7 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * La clase {@code HiloConexion} representa el hilo encargado de gestionar
+ * La clase {@code HiloConexionTCP} representa el hilo encargado de gestionar
  * la conexión inicial de un dispositivo con el servidor {@link Controlador}.
  *
  * <p>Al establecerse una conexión, el hilo identifica el tipo de dispositivo
@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author  
  * @version 1.0
  */
-public class HiloConexion extends Thread {
+public class HiloConexionTCP extends Thread {
     /** Socket asociado a la conexión del dispositivo. */
     private Socket s;
     /** Tipo de dispositivo conectado (ej: humedad, temperatura, lluvia). */
@@ -38,7 +38,7 @@ public class HiloConexion extends Thread {
      * @param s      el {@link Socket} de comunicación con el dispositivo.
      * @param estado el mapa compartido con el estado global del sistema.
      */
-    public HiloConexion(Socket s, ConcurrentHashMap<String, Object> estado) {
+    public HiloConexionTCP(Socket s, ConcurrentHashMap<String, Object> estado) {
         this.s = s;
         this.estado = estado;
     }
