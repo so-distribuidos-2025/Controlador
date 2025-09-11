@@ -126,6 +126,7 @@ public class HiloControlador extends Thread {
                 System.out.println("Conectado a la electrovalvula" + i);
             } catch (NotBoundException | MalformedURLException | RemoteException e) {
                 System.err.println("Fallo al conectar la electrovalvula " + i + ": " + e.getMessage());
+                this.electrovalvulas.add(null);
             }
         }
 
@@ -200,7 +201,7 @@ public class HiloControlador extends Thread {
                         }
                     }
 
-                    if (this.temporizadores.get(key) == 0){
+                    if (this.temporizadores.get(key) == 0 && this.electrovalvulas.get(i) != null){
                         //TODO revisar si se puede hacer mejor
                         this.electrovalvulas.get(i).cerrarValvula();
                     }
