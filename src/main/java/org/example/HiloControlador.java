@@ -200,7 +200,7 @@ public class HiloControlador extends Thread {
                         }
                         System.out.printf("Parcela %d -> Humedad = %.2f %% | INR = %.3f |", i, H, inr[i]);
                         System.out.printf(" Electrovalvula %d: %s%n", i, estaAbierta ? "Abierta" : "Cerrada");
-                        System.out.printf(" Timer: %d%n", this.temporizadores.get(key));
+                        System.out.printf(" Temporizador: %s%n", (this.temporizadores.get(key) > 0) ? "Activo" : "Apagado");
                     } else {
                         System.out.printf("Parcela %d no válida%n", i);
                     }
