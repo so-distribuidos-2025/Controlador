@@ -3,6 +3,7 @@ package org.example;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,7 +23,8 @@ public class HiloReceptorTiempo implements Runnable {
     private RuntimeException runtimeException;
     private ConcurrentHashMap<String, Object> estado;
     private ConcurrentHashMap<String, Integer> temporizadores;
-    private int id;
+    private String key;
+    private PrintWriter pw;
 
     /**
      * Devuelve el valor actual del temporizador en segundos.
@@ -46,16 +48,27 @@ public class HiloReceptorTiempo implements Runnable {
      * Constructor de la clase.
      *
      * @param clienteTemporizador socket del cliente que envía los datos del temporizador
-     * @param estado estructura compartida con el estado global del sistema
+     * @param estado              estructura compartida con el estado global del sistema
      */
-    public HiloReceptorTiempo(Socket clienteTemporizador, ConcurrentHashMap<String, Object> estado) {
+    public HiloReceptorTiempo(Socket clienteTemporizador, ConcurrentHashMap<String, Object> estado, int id) {
         this.clienteTiempo = clienteTemporizador;
         this.estado = estado;
         this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
+        this.key = String.valueOf(id);
         try {
             this.br = new BufferedReader(new InputStreamReader(clienteTemporizador.getInputStream()));
+            this.pw = new PrintWriter(clienteTemporizador.getOutputStream(), true);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void recibirTemporizacion() throws IOException, InterruptedException {
+        while (this.totalSegundos != 0) {
+            Thread.sleep(1000);
+            String entrada = br.readLine();
+            totalSegundos = Integer.parseInt(entrada);
+            this.temporizadores.put(key, totalSegundos);
         }
     }
 
@@ -70,14 +83,16 @@ public class HiloReceptorTiempo implements Runnable {
     public void run() {
         while (true) {
             try {
-                totalSegundos = this.temporizadores.getOrDefault(String.valueOf(this.id), 0);
+                totalSegundos = this.temporizadores.getOrDefault(key, 0);
+                Thread.sleep(500);
                 if (totalSegundos != 0) {
-                    String entrada = br.readLine();
-                    totalSegundos = Integer.parseInt(entrada);
-                    System.out.printf("temporizador %d parado%n", id);
+                    pw.println(totalSegundos);
+                    recibirTemporizacion();
                 }
             } catch (IOException e) {
                 throw runtimeException;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
     }

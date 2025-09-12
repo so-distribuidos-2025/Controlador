@@ -1,12 +1,11 @@
 package org.example;
 
-import org.example.interfaces.IServerRMI;
+import interfaces.IServerRMI;
 
 import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 
@@ -92,7 +91,7 @@ public class HiloControlador extends Thread {
     /**
      * Crea un nuevo hilo de control que inicializa los mapas de estado
      * (humedades, temporizadores, electroválvulas, temperatura, radiación, lluvia).
-     *
+     * <p>
      * Tambien intentan conectarse a los servidores RMI de las valvulas
      *
      * @param estado el mapa compartido que contiene los datos globales del sistema.
@@ -161,10 +160,10 @@ public class HiloControlador extends Thread {
                 this.humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
                 this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
 
-                // Calcular INR para cada parcela
+                // Calcular INR y activar electroválvulas para cada parcela
                 for (int i = 0; i < 5; i++) {
                     String key = String.valueOf(i);
-                    if (humedades.containsKey(key)) {
+                    if (humedades.containsKey(key) && this.electrovalvulas.get(i) != null) {
                         double H = humedades.get(key); // humedad %
                         inr[i] = (W1 * (1 - H / 100.0))
                                 + (W2 * (temperatura / T_MAX))
@@ -172,38 +171,38 @@ public class HiloControlador extends Thread {
                         if (lluvia) {
                             inr[i] = 0.0; // lluvia inhibe
                         }
-                        System.out.printf("Parcela %d -> Humedad = %.2f %% | INR = %.3f%n", i, H, inr[i]);
+
+                        // Activar electroválvulas según INR
+                        if (inr[i] > 0.7 && inr[i] < 0.8) {
+                            if (this.temporizadores.get(key) == 0) {
+                                this.temporizadores.put(key, 300); // 5 min
+                                this.electrovalvulas.get(i).abrirValvula();
+                            }
+                        }
+                        if (inr[i] > 0.8 && inr[i] < 0.9) {
+                            if (this.temporizadores.get(key) == 0) {
+                                this.temporizadores.put(key, 420); // 7 min
+                                this.electrovalvulas.get(i).abrirValvula();
+                            }
+                        }
+                        if (inr[i] > 0.9) {
+                            if (this.temporizadores.get(key) == 0) {
+                                this.temporizadores.put(key, 600); // 10 min
+                                this.electrovalvulas.get(i).abrirValvula();
+                            }
+                        }
+
+                        boolean estaAbierta = this.electrovalvulas.get(i).estaAbierta();
+                        if (this.temporizadores.get(key) == 0 && estaAbierta) {
+                            //TODO revisar si se puede hacer mejor
+                            this.electrovalvulas.get(i).cerrarValvula();
+
+                        }
+                        System.out.printf("Parcela %d -> Humedad = %.2f %% | INR = %.3f |", i, H, inr[i]);
+                        System.out.printf(" Electrovalvula %d: %s%n", i, estaAbierta ? "Abierta" : "Cerrada");
+                        System.out.printf(" Timer: %d%n", this.temporizadores.get(key));
                     } else {
-                        System.out.printf("Humedad parcela %d no válida%n", i);
-                    }
-                }
-
-                // Activar electroválvulas según INR
-                for (int i = 0; i < 5; i++) {
-                    String key = String.valueOf(i);
-
-                    if (inr[i] > 0.7 && inr[i] < 0.8) {
-                        if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 300); // 5 min
-                            this.electrovalvulas.get(i).abrirValvula();
-                        }
-                    }
-                    if (inr[i] > 0.8 && inr[i] < 0.9) {
-                        if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 420); // 7 min
-                            this.electrovalvulas.get(i).abrirValvula();
-                        }
-                    }
-                    if (inr[i] > 0.9) {
-                        if (this.temporizadores.get(key) != 0) {
-                            this.temporizadores.put(key, 600); // 10 min
-                            this.electrovalvulas.get(i).abrirValvula();
-                        }
-                    }
-
-                    if (this.temporizadores.get(key) == 0 && this.electrovalvulas.get(i) != null){
-                        //TODO revisar si se puede hacer mejor
-                        this.electrovalvulas.get(i).cerrarValvula();
+                        System.out.printf("Parcela %d no válida%n", i);
                     }
                 }
 

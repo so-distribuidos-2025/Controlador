@@ -81,7 +81,7 @@ public class HiloConexionTCP extends Thread {
                 case "temporizador":
                     id = Integer.parseInt(br.readLine()); // Leer id
                     System.out.printf("---Conectado temporizador %d---\n", id);
-                    HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s, estado);
+                    HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s, estado, id);
                     receptorTiempo.run(); // Nota: se ejecuta en el mismo hilo
                     break;
                 case "iluminacion":
