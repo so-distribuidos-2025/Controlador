@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * temporizador se identifica por un {@code id} y controla un contador
  * de segundos que puede reiniciarse o detenerse según la entrada.</p>
  */
-public class HiloReceptorTiempo implements Runnable {
+public class HiloReceptorTiempo extends Thread {
 
     private Socket clienteTiempo;
     private final BufferedReader br;

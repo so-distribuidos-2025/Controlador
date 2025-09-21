@@ -82,16 +82,12 @@ public class HiloConexionTCP extends Thread {
                     id = Integer.parseInt(br.readLine()); // Leer id
                     System.out.printf("---Conectado temporizador %d---\n", id);
                     HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s, estado, id);
-                    receptorTiempo.run(); // Nota: se ejecuta en el mismo hilo
+                    receptorTiempo.start(); // Nota: se ejecuta en el mismo hilo
                     break;
                 case "iluminacion":
                     System.out.println("---Conectado sensor iluminacion---");
                     HiloReceptorIluminacion receptorIluminacion = new HiloReceptorIluminacion(s, estado);
-                    receptorIluminacion.run(); // Nota: se ejecuta en el mismo hilo
-                    break;
-                case "electrovalvula":
-                    id = Integer.parseInt(br.readLine()); // Leer id
-                    System.out.printf("---Conectado electrovalvula %d---\n", id);
+                    receptorIluminacion.start(); // Nota: se ejecuta en el mismo hilo
                     break;
                 default:
                     System.out.println("Disposivo no reconocido");
