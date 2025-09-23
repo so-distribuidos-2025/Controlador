@@ -8,11 +8,13 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Hilo encargado de recibir datos del sensor de lluvia.
+ * Hilo encargado de recibir y procesar continuamente los datos de un sensor de lluvia.
  *
- * <p>Este hilo se conecta a un cliente que envía datos binarios (0 o 1),
- * indicando si está lloviendo o no. La información se almacena en el
- * {@link ConcurrentHashMap} de estado compartido bajo la clave {@code "lluvia"}.</p>
+ * <p>Este hilo se dedica a leer los datos enviados por un sensor de lluvia, que
+ * consisten en valores de {@code 1.0} (lloviendo) o {@code 0.0} (no lloviendo).
+ * En un bucle infinito, lee una línea de texto, la convierte a un valor
+ * booleano y actualiza el estado global del sistema en el
+ * {@link ConcurrentHashMap} compartido bajo la clave {@code "lluvia"}.</p>
  */
 public class HiloReceptorLluvia extends Thread {
 
@@ -22,28 +24,11 @@ public class HiloReceptorLluvia extends Thread {
     private ConcurrentHashMap<String, Object> estado;
 
     /**
-     * Devuelve el último estado de lluvia recibido.
+     * Construye un nuevo hilo receptor para un sensor de lluvia.
      *
-     * @return {@code true} si llueve, {@code false} en caso contrario
-     */
-    public boolean getlluvia() {
-        return lluvia;
-    }
-
-    /**
-     * Establece manualmente el valor de lluvia.
-     *
-     * @param lluvia nuevo estado de lluvia
-     */
-    public void setlluvia(boolean lluvia) {
-        this.lluvia = lluvia;
-    }
-
-    /**
-     * Constructor de la clase.
-     *
-     * @param clientelluvia socket del cliente que envía los datos de lluvia
-     * @param estado estructura compartida con el estado global del sistema
+     * @param clientelluvia el {@link Socket} de la conexión con el sensor.
+     * @param estado el mapa {@link ConcurrentHashMap} que contiene el estado global del sistema.
+     * @throws RuntimeException si ocurre un error al inicializar el lector de entrada del socket.
      */
     public HiloReceptorLluvia(Socket clientelluvia, ConcurrentHashMap<String, Object> estado) {
         this.clientelluvia = clientelluvia;
@@ -58,9 +43,10 @@ public class HiloReceptorLluvia extends Thread {
     /**
      * Bucle principal del hilo.
      *
-     * <p>Lee continuamente datos del socket (0 o 1), los convierte a
-     * {@code boolean} y actualiza el mapa compartido de estado bajo la
-     * clave {@code "lluvia"}.</p>
+     * <p>Lee continuamente datos del socket, los interpreta como {@code 1.0} para
+     * {@code true} y cualquier otro valor para {@code false}, y actualiza el
+     * mapa de estado compartido bajo la clave {@code "lluvia"}. Realiza una
+     * pausa de 1 segundo entre lecturas.</p>
      */
     public void run() {
         while (true) {
@@ -68,10 +54,8 @@ public class HiloReceptorLluvia extends Thread {
                 String entrada = br.readLine();
                 lluvia = Double.parseDouble(entrada) == 1.0;
                 this.estado.put("lluvia", lluvia);
-                sleep(1000);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (InterruptedException e) {
+                Thread.sleep(1000);
+            } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }

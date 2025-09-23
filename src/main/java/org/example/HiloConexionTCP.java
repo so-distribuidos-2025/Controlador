@@ -7,53 +7,65 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * La clase {@code HiloConexionTCP} representa el hilo encargado de gestionar
- * la conexión inicial de un dispositivo con el servidor {@link Controlador}.
+ * Gestiona la conexión inicial de un dispositivo con el servidor y lo deriva
+ * al hilo receptor correspondiente.
  *
- * <p>Al establecerse una conexión, el hilo identifica el tipo de dispositivo
- * (por ejemplo: {@code humedad}, {@code temperatura}, {@code lluvia}, 
- * {@code temporizador}, {@code iluminacion}, {@code electrovalvula}) y crea 
- * un hilo receptor específico para manejar la comunicación con dicho dispositivo.</p>
+ * <p>Esta clase actúa como un despachador. Cuando el servidor
+ * principal ({@link ServerTCP}) acepta una nueva conexión, crea una instancia de
+ * {@code HiloConexionTCP}. Este hilo es responsable de leer la primera línea
+ * enviada por el cliente para identificar su tipo (ej: {@code "humedad"},
+ * {@code "temperatura"}, {@code "lluvia"}, etc.).</p>
  *
- * <p>El estado compartido del sistema se mantiene en un 
- * {@link ConcurrentHashMap}, donde los distintos hilos receptores actualizan
- * la información correspondiente.</p>
+ * <p>Según el tipo de dispositivo, se crea y se inicia un hilo receptor
+ * especializado para manejar la comunicación continua con ese dispositivo. Para los sensores
+ * que pertenecen a una parcela específica (humedad y temporizador), este hilo
+ * también los registra en el {@link HiloControlador} principal para que
+ * sean asignados a su {@link HiloParcela} correspondiente.</p>
  *
- * <p>En caso de recibir un tipo no reconocido, se muestra un mensaje por consola.</p>
- *
- * @author  
- * @version 1.0
+ * @author Brunardo19
  */
 public class HiloConexionTCP extends Thread {
-    /** Socket asociado a la conexión del dispositivo. */
+    /** Socket de la conexión entrante del dispositivo. */
     private Socket s;
-    /** Tipo de dispositivo conectado (ej: humedad, temperatura, lluvia). */
+
     String tipoDispositivo = "";
-    /** Estado global compartido entre todos los hilos. */
+
+    /** Mapa de estado global, compartido entre todos los hilos del sistema. */
     ConcurrentHashMap<String, Object> estado;
+    /** Referencia al hilo de control principal para registrar nuevos sensores. */
+    HiloControlador hiloControlador;
 
     /**
-     * Crea un nuevo hilo de conexión para gestionar un dispositivo.
+     * Construye un nuevo hilo para gestionar la conexión inicial de un dispositivo.
      *
-     * @param s      el {@link Socket} de comunicación con el dispositivo.
-     * @param estado el mapa compartido con el estado global del sistema.
+     * @param s      el {@link Socket} de la conexión del cliente.
+     * @param estado el mapa {@link ConcurrentHashMap} que contiene el estado global del sistema.
+     * @param hiloControlador la instancia del hilo de control principal, necesaria
+     *                        para registrar sensores específicos de parcela.
      */
-    public HiloConexionTCP(Socket s, ConcurrentHashMap<String, Object> estado) {
+    public HiloConexionTCP(Socket s, ConcurrentHashMap<String, Object> estado, HiloControlador hiloControlador) {
         this.s = s;
         this.estado = estado;
+        this.hiloControlador = hiloControlador;
     }
 
     /**
-     * Método principal del hilo.
+     * Bucle principal de ejecución del hilo.
      *
      * <p>Realiza los siguientes pasos:</p>
-     * <ul>
-     *   <li>Lee el tipo de dispositivo desde el flujo de entrada.</li>
-     *   <li>Según el tipo, inicializa el hilo receptor correspondiente.</li>
-     *   <li>En caso de que el dispositivo no sea reconocido, imprime un mensaje de error.</li>
-     * </ul>
+     * <ol>
+     *   <li>Lee el tipo de dispositivo desde el flujo de entrada del socket.</li>
+     *   <li>Para dispositivos de parcela, lee su identificador (ID).</li>
+     *   <li>Utiliza una estructura {@code switch} para determinar el tipo de dispositivo:</li>
+     *   <ul>
+     *      <li>Crea e inicia el hilo receptor adecuado para el dispositivo.</li>
+     *      <li>Si el dispositivo es un sensor de humedad o un temporizador, lo registra
+     *          en el {@link HiloControlador} para asociarlo a la parcela correcta.</li>
+     *   </ul>
+     *   <li>Si el tipo de dispositivo no se reconoce, imprime un mensaje en consola.</li>
+     * </ol>
      *
-     * @throws RuntimeException si ocurre un error de entrada/salida durante la conexión.
+     * @throws RuntimeException si ocurre un error de entrada/salida durante la comunicación inicial.
      */
     @Override
     public void run() {
@@ -65,8 +77,9 @@ public class HiloConexionTCP extends Thread {
                 case "humedad":
                     id = Integer.parseInt(br.readLine()); // Leer id
                     System.out.printf("---Conectado sensor humedad %d---\n", id);
-                    HiloReceptorHumedad receptor = new HiloReceptorHumedad(s, estado, id);
-                    receptor.start();
+                    HiloReceptorHumedad receptorHumedad = new HiloReceptorHumedad(s);
+                    receptorHumedad.start();
+                    hiloControlador.setSensorHumedad(receptorHumedad,id);
                     break;
                 case "temperatura":
                     System.out.println("---Conectado sensor temperatura---");
@@ -81,8 +94,9 @@ public class HiloConexionTCP extends Thread {
                 case "temporizador":
                     id = Integer.parseInt(br.readLine()); // Leer id
                     System.out.printf("---Conectado temporizador %d---\n", id);
-                    HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s, estado, id);
-                    receptorTiempo.start(); // Nota: se ejecuta en el mismo hilo
+                    HiloReceptorTiempo receptorTiempo = new HiloReceptorTiempo(s);
+                    receptorTiempo.start();
+                    hiloControlador.setSensorTiempo(receptorTiempo,id);
                     break;
                 case "iluminacion":
                     System.out.println("---Conectado sensor iluminacion---");

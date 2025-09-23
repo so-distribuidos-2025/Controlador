@@ -1,5 +1,8 @@
 package org.example;
 
+/**
+ * Clase estatica para el calculo del INR
+ */
 public class Inr {
     private static final double W1 = 0.5;
     private static final double W2 = 0.3;

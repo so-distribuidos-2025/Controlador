@@ -31,7 +31,7 @@ public class ServerTCP extends Thread {
             hiloControlador.start();
             while (true) {
                 Socket s = server.accept();
-                HiloConexionTCP handler = new HiloConexionTCP(s, estado);
+                HiloConexionTCP handler = new HiloConexionTCP(s, estado, hiloControlador);
                 handler.start();
             }
         } catch (IOException e) {

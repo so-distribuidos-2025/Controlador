@@ -8,11 +8,13 @@ import java.net.Socket;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Hilo encargado de recibir datos de un sensor de iluminación.
+ * Hilo encargado de recibir y procesar continuamente los datos de un sensor de iluminación.
  *
- * <p>Este hilo se conecta a un cliente que envía valores de iluminación
- * en formato numérico (double). Los datos recibidos se almacenan en el
- * {@link ConcurrentHashMap} de estado compartido bajo la clave {@code "radiacion"}.</p>
+ * <p>Este hilo se dedica a leer los valores de radiación solar enviados por un
+ * sensor a través de una conexión de socket. En un bucle infinito, lee una
+ * línea de texto, la convierte a {@code double} y actualiza el estado global
+ * del sistema en el {@link ConcurrentHashMap} compartido bajo la clave {@code "radiacion"}.</p>
+ *
  */
 public class HiloReceptorIluminacion extends Thread {
 
@@ -22,28 +24,11 @@ public class HiloReceptorIluminacion extends Thread {
     private ConcurrentHashMap<String, Object> estado;
 
     /**
-     * Devuelve el último valor de iluminación recibido.
+     * Construye un nuevo hilo receptor para un sensor de iluminación.
      *
-     * @return valor de iluminación en W/m²
-     */
-    public double getIlumicacion() {
-        return iluminacion;
-    }
-
-    /**
-     * Establece manualmente el valor de iluminación.
-     *
-     * @param iluminacion nuevo valor de iluminación
-     */
-    public void setIlumicacion(double iluminacion) {
-        this.iluminacion = iluminacion;
-    }
-
-    /**
-     * Constructor de la clase.
-     *
-     * @param clienteIluminacion socket del cliente que envía los datos de iluminación
-     * @param estado estructura compartida con el estado global del sistema
+     * @param clienteIluminacion el {@link Socket} de la conexión con el sensor.
+     * @param estado el mapa {@link ConcurrentHashMap} que contiene el estado global del sistema.
+     * @throws RuntimeException si ocurre un error al inicializar el lector de entrada del socket.
      */
     public HiloReceptorIluminacion(Socket clienteIluminacion, ConcurrentHashMap<String, Object> estado) {
         this.clienteIluminacion = clienteIluminacion;
@@ -58,8 +43,10 @@ public class HiloReceptorIluminacion extends Thread {
     /**
      * Bucle principal del hilo.
      *
-     * <p>Lee continuamente datos del socket, los convierte a {@code double}
-     * y actualiza el mapa compartido de estado bajo la clave {@code "radiacion"}.</p>
+     * <p>Lee continuamente datos del socket, los convierte a {@code double},
+     * actualiza el valor local y actualiza el mapa de estado compartido
+     * bajo la clave {@code "radiacion"}. Realiza una pausa de 1 segundo
+     * entre lecturas.</p>
      */
     public void run() {
         while (true) {
@@ -68,12 +55,9 @@ public class HiloReceptorIluminacion extends Thread {
                 iluminacion = Double.parseDouble(entrada);
                 estado.put("radiacion", iluminacion);
                 sleep(1000);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (InterruptedException e) {
+            } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
     }
 }
-
