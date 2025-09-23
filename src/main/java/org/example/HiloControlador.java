@@ -160,6 +160,8 @@ public class HiloControlador extends Thread {
                 this.humedades = (ConcurrentHashMap<String, Double>) this.estado.get("humedades");
                 this.temporizadores = (ConcurrentHashMap<String, Integer>) this.estado.get("temporizadores");
 
+                //TODO Mover cada calculo de cada parcela a nuevo hilo
+
                 // Calcular INR y activar electroválvulas para cada parcela
                 for (int i = 0; i < 5; i++) {
                     String key = String.valueOf(i);
@@ -170,7 +172,7 @@ public class HiloControlador extends Thread {
                                 + (W3 * (radiacion / R_MAX));
                         if (lluvia) {
                             inr[i] = 0.0; // lluvia inhibe
-                        }
+                        } //TODO cerrar electrovalvulas cuando llueve
 
                         // Activar electroválvulas según INR
                         if (inr[i] > 0.7 && inr[i] < 0.8) {
