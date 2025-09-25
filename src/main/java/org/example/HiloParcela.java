@@ -2,6 +2,7 @@ package org.example;
 
 import interfaces.IServerRMI;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.MalformedURLException;
@@ -18,45 +19,63 @@ import java.util.concurrent.ConcurrentHashMap;
  * datos de los sensores asociados a ella (humedad y temporizador) con los
  * datos ambientales globales (temperatura, radiación y lluvia) para tomar
  * decisiones sobre el riego.</p>
-
- *   <li>Actualiza su estado local con los valores globales del sistema.</li>
- *   <li>Lee la humedad actual de su sensor de humedad asociado.</li>
- *   <li>Comprueba el estado de su temporizador.</li>
- *   <li>Calcula el Índice de Necesidad de Riego (INR) basado en la humedad,
- *       radiación y temperatura, siempre que no esté lloviendo y el temporizador
- *       esté activo.</li>
- *   <li>En función del valor del INR, decide si debe abrir la electroválvula
- *       y durante cuánto tiempo, comunicando esta duración al dispositivo temporizador.</li>
- *   <li>Controla la electroválvula a través de una conexión RMI.</li>
+ *
+ * <li>Actualiza su estado local con los valores globales del sistema.</li>
+ * <li>Lee la humedad actual de su sensor de humedad asociado.</li>
+ * <li>Comprueba el estado de su temporizador.</li>
+ * <li>Calcula el Índice de Necesidad de Riego (INR) basado en la humedad,
+ * radiación y temperatura, siempre que no esté lloviendo y el temporizador
+ * esté activo.</li>
+ * <li>En función del valor del INR, decide si debe abrir la electroválvula
+ * y durante cuánto tiempo, comunicando esta duración al dispositivo temporizador.</li>
+ * <li>Controla la electroválvula a través de una conexión RMI.</li>
  *
  * @author Brunardo19
  */
 public class HiloParcela extends Thread {
-    /** Hilo receptor de datos del sensor de humedad asociado a esta parcela. */
+    /**
+     * Hilo receptor de datos del sensor de humedad asociado a esta parcela.
+     */
     private HiloReceptorHumedad hiloHumedad;
-    /** Hilo receptor de datos del temporizador asociado a esta parcela. */
+    /**
+     * Hilo receptor de datos del temporizador asociado a esta parcela.
+     */
     private HiloReceptorTiempo hiloTiempo;
-    /** Interfaz RMI para controlar la electroválvula de la parcela. */
+    /**
+     * Interfaz RMI para controlar la electroválvula de la parcela.
+     */
     private IServerRMI electrovalvula;
 
     private int id;
 
-    /** Estado local. */
+    /**
+     * Estado local.
+     */
     private boolean lluvia;
     private double radiacion;
     private double temperatura;
 
-    /** Canal de escritura para enviar comandos al temporizador. */
+    /**
+     * Canal de escritura para enviar comandos al temporizador.
+     */
     private PrintWriter timeWriter;
-    /** Estado actual del temporizador (1 para activo, 0 para inactivo). */
+    /**
+     * Estado actual del temporizador (1 para activo, 0 para inactivo).
+     */
     volatile int estadoTemporizador;
 
-    /** Último valor de humedad registrado para esta parcela. */
+    /**
+     * Último valor de humedad registrado para esta parcela.
+     */
     volatile double humedad;
-    /** Índice de Necesidad de Riego calculado para esta parcela. */
+    /**
+     * Índice de Necesidad de Riego calculado para esta parcela.
+     */
     volatile double inr;
 
-    /** Referencia al mapa de estado global del sistema. */
+    /**
+     * Referencia al mapa de estado global del sistema.
+     */
     ConcurrentHashMap estado;
 
     /**
@@ -156,28 +175,36 @@ public class HiloParcela extends Thread {
                 this.radiacion = (Double) this.estado.get("radiacion");
                 this.lluvia = (Boolean) this.estado.get("lluvia");
                 this.temperatura = (Double) this.estado.get("temperatura");
-                this.estadoTemporizador = this.hiloTiempo.getEstadoTemporizador();
                 if (this.hiloHumedad != null && this.hiloTiempo != null) {
+                    this.estadoTemporizador = this.hiloTiempo.getEstadoTemporizador();
                     this.humedad = this.hiloHumedad.getHumedad();
                     if (!lluvia) {
-                        if (estadoTemporizador == 1){
-                            this.inr = Inr.calcularInr(humedad, radiacion, temperatura);
-                            if (inr > 0.9) {
-                                timeWriter.println(600);
-                                electrovalvula.abrirValvula();
-                            } else if (inr > 0.8) {
-                                timeWriter.println(420);
-                                electrovalvula.abrirValvula();
-                            } else if (inr > 0.7) {
-                                timeWriter.println(300);
-                                electrovalvula.abrirValvula();
-                            }
+                        this.inr = Inr.calcularInr(humedad, radiacion, temperatura);
+                        if (inr > 0.9) {
+                            timeWriter.println(600);
+                            electrovalvula.abrirValvula();
+
+                        } else if (inr > 0.8) {
+                            timeWriter.println(420);
+                            electrovalvula.abrirValvula();
+
+                        } else if (inr > 0.7) {
+                            timeWriter.println(300);
+                            electrovalvula.abrirValvula();
+
+                        }
+                        if (estadoTemporizador == 0) {
+                            electrovalvula.abrirValvula();
                         }else{
+                            System.out.println("Cerrada por temporizador");
                             electrovalvula.cerrarValvula();
                         }
                     } else { //Si Llueve cerrar valvula
-                        inr = 0;
+                        System.out.println("Cerrada por lluvia");
                         electrovalvula.cerrarValvula();
+                        //System.out.println("Parar por lluvia");
+                        timeWriter.println(0);
+                        inr = 0;
                     }
                 }
                 Thread.sleep(500);

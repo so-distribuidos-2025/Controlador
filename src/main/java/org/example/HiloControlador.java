@@ -117,7 +117,7 @@ public class HiloControlador extends Thread {
                     double humedad = listaParcelas.get(i).getHumedad();
                     double inr = listaParcelas.get(i).getInr();
                     boolean estaAbierta = listaParcelas.get(i).getElectrovalvula().estaAbierta();
-                    boolean temporizadorActivo = listaParcelas.get(i).getEstadoTemporizador() == 1;
+                    boolean temporizadorActivo = listaParcelas.get(i).getEstadoTemporizador() == 0;
                     System.out.printf("Parcela %d -> Humedad = %.2f %% | INR = %.3f |", i, humedad, inr);
                     System.out.printf(" Electrovalvula %d: %s%n", i, estaAbierta ? "Abierta" : "Cerrada");
                     System.out.printf(" Temporizador: %s%n", (temporizadorActivo) ? "Activo" : "Apagado");
