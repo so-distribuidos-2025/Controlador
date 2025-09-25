@@ -67,15 +67,15 @@ public class HiloReceptorTiempo extends Thread {
     /**
      * Bucle principal del hilo.
      *
-     * <p>Verifica periódicamente el estadoTemporizador del temporizador asociado al {@code id}.
-     * Si el valor no es cero, lee nuevos datos desde el socket y actualiza el
-     * contador de segundos.</p>
+     * <p>Verifica periódicamente el estadoTemporizador del temporizador asociado al {@code id}./p>
      */
     @Override
     public void run() {
         while (true) {
             try {
-                this.estadoTemporizador = Integer.parseInt(br.readLine());
+                int lectura = Integer.parseInt(br.readLine());
+                this.estadoTemporizador = lectura;
+                //System.out.println(estadoTemporizador);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
