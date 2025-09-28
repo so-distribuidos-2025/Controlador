@@ -78,6 +78,14 @@ public class HiloParcela extends Thread {
      */
     ConcurrentHashMap estado;
 
+    private volatile boolean estaRegando = false;
+
+    /**
+     * Bandera para indicar al HiloControlador si esta parcela necesita agua.
+     * Es volatile porque es accedida por dos hilos diferentes.
+     */
+    private volatile boolean necesitaAgua = false;
+
     /**
      * Construye un nuevo hilo para gestionar una parcela.
      * <p>
@@ -152,6 +160,14 @@ public class HiloParcela extends Thread {
     }
 
     /**
+     * Permite al HiloControlador saber si esta parcela ha solicitado agua.
+     * @return true si la parcela necesita agua, false en caso contrario.
+     */
+    public boolean necesitaAgua() {
+        return this.necesitaAgua;
+    }
+
+    /**
      * Bucle principal de ejecución del hilo.
      *
      * <p>Lógica central de control de la parcela.
@@ -172,40 +188,68 @@ public class HiloParcela extends Thread {
     public void run() {
         while (true) {
             try {
+                // Asegurarse de que los sensores están conectados antes de hacer nada
+                if (this.hiloHumedad == null || this.hiloTiempo == null) {
+                    Thread.sleep(2000); // Esperar a que se conecten
+                    continue;
+                }
+
+                // Obtener estado actual
                 this.radiacion = (Double) this.estado.get("radiacion");
                 this.lluvia = (Boolean) this.estado.get("lluvia");
                 this.temperatura = (Double) this.estado.get("temperatura");
-                if (this.hiloHumedad != null && this.hiloTiempo != null) {
-                    this.estadoTemporizador = this.hiloTiempo.getEstadoTemporizador();
-                    this.humedad = this.hiloHumedad.getHumedad();
-                    if (!lluvia) {
-                        this.inr = Inr.calcularInr(humedad, radiacion, temperatura);
-                        if (inr > 0.9) {
-                            timeWriter.println(600);
-                            electrovalvula.abrirValvula();
+                this.estadoTemporizador = this.hiloTiempo.getEstadoTemporizador(); // 1 = listo, 0 = ocupado
+                this.humedad = this.hiloHumedad.getHumedad();
 
-                        } else if (inr > 0.8) {
-                            timeWriter.println(420);
-                            electrovalvula.abrirValvula();
+                // Calcular necesidad de riego
+                boolean necesitaRegarAhora;
+                if (lluvia) {
+                    this.inr = 0;
+                    necesitaRegarAhora = false;
+                } else {
+                    this.inr = Inr.calcularInr(humedad, radiacion, temperatura);
+                    necesitaRegarAhora = inr > 0.7;
+                }
 
-                        } else if (inr > 0.7) {
-                            timeWriter.println(300);
-                            electrovalvula.abrirValvula();
+                if (estaRegando) {
+                    // ESTADO: REGANDO
+                    // Condición para detener el riego: llueve o el temporizador terminó.
+                    boolean temporizadorTermino = (estadoTemporizador == 1);
 
-                        }
-                        if (estadoTemporizador == 0) {
-                            electrovalvula.abrirValvula();
-                        }else{
-                            //System.out.println("Cerrada por temporizador");
-                            electrovalvula.cerrarValvula();
-                        }
-                    } else { //Si Llueve cerrar valvula
-                        //System.out.println("Cerrada por lluvia");
+                    if (lluvia || temporizadorTermino) {
+                        System.out.println("Parcela " + this.id + " - DETENIENDO RIEGO. Causa: "
+                                + (lluvia ? "Lluvia" : "Temporizador finalizado"));
+
+                        estaRegando = false;
+                        this.necesitaAgua = false;
                         electrovalvula.cerrarValvula();
-                        timeWriter.println(0);
-                        inr = 0;
+
+                        // Si el temporizador no ha terminado por su cuenta, le decimos que pare.
+                        if (!temporizadorTermino) {
+                            timeWriter.println(0);
+                        }
+                    }
+
+                } else {
+                    // ESTADO: NO REGANDO
+                    // Condición para iniciar el riego: se necesita y el temporizador está listo.
+                    boolean temporizadorListo = (estadoTemporizador == 1);
+
+                    if (necesitaRegarAhora && temporizadorListo) {
+                        System.out.println("Parcela " + this.id + " - INICIANDO RIEGO (INR: " + String.format("%.2f", inr) + ")");
+
+                        estaRegando = true;
+                        this.necesitaAgua = true; // Pedimos agua al controlador
+                        electrovalvula.abrirValvula();
+
+                        // Calcular y enviar duración al temporizador
+                        int duracion = 300; // Por defecto
+                        if (inr > 0.9) duracion = 600;
+                        else if (inr > 0.8) duracion = 420;
+                        timeWriter.println(duracion);
                     }
                 }
+
                 Thread.sleep(500);
             } catch (InterruptedException | RemoteException e) {
                 throw new RuntimeException(e);
