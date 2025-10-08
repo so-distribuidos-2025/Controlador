@@ -1,103 +1,126 @@
 package org.example;
 
 import interfaces.IServerRMI;
-import com.sistdist.interfaces.IExclusionMutua;
-
+import interfaces.IServicioExclusionMutua;
+import interfaces.IClienteEM;
 import java.io.IOException;
-import java.net.MalformedURLException;
 
+import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-
+import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Representa el hilo principal de control del sistema de invernadero.
+ * <p>
+ * Clase {@code HiloControlador} que representa el hilo principal de control del
+ * sistema de invernadero. Esta clase se ejecuta de forma concurrente para
+ * supervisar las condiciones ambientales y el estado de las parcelas, además de
+ * coordinar el acceso exclusivo a la bomba de agua utilizando un servicio RMI
+ * de exclusión mutua.
+ * </p>
  *
- * <p>Esta clase actúa como el coordinador central que gestiona el estado
- * general del entorno (temperatura, radiación, lluvia) y supervisa
- * las distintas parcelas del invernadero. Cada parcela es gestionada por
- * su propio hilo de tipo {@link HiloParcela}. Se encarga de obtener los datos
- * necesarios para cada impresion de estado del sistema</p>
+ * <p>
+ * Funcionalidades principales:
+ * <ul>
+ *     <li>Conectarse a un servicio de exclusión mutua mediante RMI para controlar un recurso compartido (bomba de agua).</li>
+ *     <li>Conectarse a la válvula maestra del sistema de riego mediante RMI.</li>
+ *     <li>Supervisar periódicamente el estado de las parcelas y solicitar o liberar el acceso a la bomba según la demanda.</li>
+ *     <li>Mostrar por consola el estado detallado de las parcelas y variables ambientales.</li>
+ * </ul>
+ * </p>
  *
- * <li>Inicializar y lanzar los hilos para las 5 parcelas del sistema.</li>
- * <li>Asignar los sensores de humedad y temporizadores que se conectan
- * al sistema a su {@link HiloParcela} correspondiente.</li>
- * <li>En un bucle continuo, leer el estado global del entorno desde un
- * mapa compartido ({@link ConcurrentHashMap}).</li>
- * <li>Mostrar en consola un informe periódico del estado de cada parcela
- * (humedad, INR, estado de la electroválvula y temporizador) y del
- * estado general del invernadero.</li>
- *
- * @author Brunardo19
+ * <p>
+ * Implementa la interfaz remota {@link IClienteEM}, lo que permite que el
+ * servidor de exclusión mutua invoque de manera asíncrona el método
+ * {@link #RecibirToken()} cuando este cliente obtiene acceso exclusivo al
+ * recurso.
+ * </p>
  */
-public class HiloControlador extends Thread {
+public class HiloControlador extends UnicastRemoteObject implements IClienteEM, Runnable {
 
     /**
-     * Mapa compartido que almacena el estado global del sistema.
+     * Estructura compartida que almacena variables ambientales globales (temperatura, radiación y lluvia).
      */
-    ConcurrentHashMap<String, Object> estado;
+    private final ConcurrentHashMap<String, Object> estado;
 
     /**
-     * Lista que contiene los hilos de gestión para cada una de las parcelas.
+     * Lista de hilos que representan las parcelas del invernadero.
+     * Cada {@link HiloParcela} controla su propia humedad, INR y válvula.
      */
-    private List<HiloParcela> listaParcelas = new ArrayList<>();
+    private final List<HiloParcela> listaParcelas = new ArrayList<>();
 
     /**
-     * Último valor de temperatura registrado.
+     * Temperatura actual del ambiente (°C).
      */
     private double temperatura;
+
     /**
-     * Último valor de radiación solar registrado.
+     * Radiación solar actual (W/m²).
      */
     private double radiacion;
+
     /**
-     * Estado actual de la lluvia (true si está lloviendo).
+     * Indica si está lloviendo en el entorno monitoreado.
      */
     private boolean lluvia;
 
-
-    private IExclusionMutua exclusionService;
-    private IServerRMI valvulaMaestraParcelas;
-    private boolean tieneAccesoBomba = false;
-    private final String CLIENTE_ID = "ControladorParcelas";
-    private final String RECURSO_BOMBA = "BombaAgua";
-
+    /**
+     * Referencia al servicio remoto de exclusión mutua.
+     * Utilizado para solicitar y liberar el acceso a la bomba de agua.
+     */
+    private final IServicioExclusionMutua exclusionService;
 
     /**
-     * Construye e inicializa el hilo de control principal.
-     *
-     * <p>En el constructor se inicializan los valores por defecto para el estado
-     * del entorno, se crean y arrancan los cinco hilos {@link HiloParcela}
-     * que gestionarán cada una de las parcelas del invernadero.</p>
-     *
-     * @param estado el mapa {@link ConcurrentHashMap} compartido que contiene el
-     *               estado global del sistema.
+     * Referencia al servidor remoto que controla la válvula maestra de riego.
      */
-    public HiloControlador(ConcurrentHashMap<String, Object> estado) {
+    private final IServerRMI valvulaMaestraParcelas;
+
+    /**
+     * Indica si actualmente el controlador posee el token que da acceso a la bomba de agua.
+     */
+    private volatile boolean tieneAccesoBomba = false;
+
+    /**
+     * Nombre del recurso compartido que se administra mediante exclusión mutua.
+     */
+    private static final String RECURSO_BOMBA = "BombaAgua";
+
+    /**
+     * Construye el hilo controlador, inicializando variables globales, creando hilos de parcelas,
+     * y estableciendo conexiones RMI con los servicios de exclusión mutua y control de válvula.
+     *
+     * @param estado estructura compartida que mantiene variables globales.
+     * @throws RemoteException si ocurre un error al exportar el objeto remoto.
+     */
+    public HiloControlador(ConcurrentHashMap<String, Object> estado) throws RemoteException {
+        super();
         this.estado = estado;
         this.temperatura = 0.0;
         this.radiacion = 0.0;
         this.lluvia = false;
 
-        this.estado.put("temperatura", 0.0);
-        this.estado.put("radiacion", 0.0);
-        this.estado.put("lluvia", false);
+        // Inicialización de estado global
+        this.estado.put("temperatura", temperatura);
+        this.estado.put("radiacion", radiacion);
+        this.estado.put("lluvia", lluvia);
 
+        // Inicializar 5 parcelas y lanzar sus hilos
         for (int i = 0; i < 5; i++) {
-            listaParcelas.add(new HiloParcela(i, estado));
-            listaParcelas.get(i).start();
+            HiloParcela parcela = new HiloParcela(i, estado);
+            listaParcelas.add(parcela);
+            parcela.start();
         }
 
         try {
-            // Conectar al servidor de Exclusión Mutua
-            this.exclusionService = (IExclusionMutua) Naming.lookup("rmi://localhost:9000/ExclusionMutua");
-            System.out.println("Controlador conectado al servicio de Exclusión Mutua.");
+            // Conexión con el servicio de exclusión mutua (token por recurso)
+            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://localhost:9000/ExclusionMutua");
+            System.out.println("Controlador conectado al servicio de Exclusión Mutua (adaptado).");
 
-            // Conectar a la válvula maestra de parcelas (ID 5 -> puerto 21005)
+            // Conexión con la válvula maestra de parcelas
             this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://localhost:21005/ServerRMI");
             System.out.println("Controlador conectado a la Válvula Maestra de Parcelas.");
 
@@ -105,6 +128,9 @@ public class HiloControlador extends Thread {
             System.err.println("Error crítico al conectar con servicios RMI: " + e.getMessage());
             throw new RuntimeException(e);
         }
+
+        // Iniciar hilo principal de control
+        new Thread(this).start();
     }
 
     /**
@@ -129,17 +155,14 @@ public class HiloControlador extends Thread {
     }
 
     /**
-     * Bucle principal de ejecución del hilo controlador.
-     *
-     * <p>Este método se ejecuta de forma continua y realiza las siguientes tareas
-     * en cada iteración:</p>
-     * <ol>
-     *   <li>Actualiza las variables locales de temperatura, radiación y lluvia
-     *       leyendo los valores del mapa de estado compartido.</li>
-     *   <li>Recorre la lista de parcelas y muestra en consola el estado detallado de cada una.</li>
-     *   <li>Muestra un resumen del estado ambiental general del invernadero.</li>
-     *   <li>Espera 1 segundo antes de la siguiente actualización.</li>
-     * </ol>
+     * Método principal de ejecución del hilo controlador.
+     * <p>
+     * Se ejecuta en bucle continuo, verificando periódicamente si alguna parcela
+     * necesita agua. Si hay demanda y no se posee el token, se solicita al
+     * servidor de exclusión mutua. Si no hay demanda pero se posee el token, se
+     * libera el recurso. Además, actualiza las variables globales y muestra el
+     * estado de las parcelas y del sistema por consola.
+     * </p>
      */
     @Override
     public void run() {
@@ -148,65 +171,56 @@ public class HiloControlador extends Thread {
                 boolean demandaActual = algunaParcelaNecesitaAgua();
 
                 if (demandaActual && !tieneAccesoBomba) {
-                    // Hay demanda y no tenemos el control: intentar tomarlo
-                    if (exclusionService.solicitarAcceso(RECURSO_BOMBA, CLIENTE_ID)) {
-                        tieneAccesoBomba = true;
-                        valvulaMaestraParcelas.abrirValvula();
-                    }
+                    // Solicitar acceso exclusivo al recurso
+                    exclusionService.ObtenerRecurso(RECURSO_BOMBA, this);
                 } else if (!demandaActual && tieneAccesoBomba) {
-                    // No hay demanda pero tenemos el control: liberarlo
+                    // Liberar recurso cuando ya no hay demanda
                     valvulaMaestraParcelas.cerrarValvula();
-                    exclusionService.liberarAcceso(RECURSO_BOMBA, CLIENTE_ID);
+                    exclusionService.DevolverRecurso(RECURSO_BOMBA);
                     tieneAccesoBomba = false;
                 }
 
-                //Obtener estado
+                // Actualizar estado global
                 this.temperatura = (double) this.estado.get("temperatura");
                 this.radiacion = (double) this.estado.get("radiacion");
                 this.lluvia = (boolean) this.estado.get("lluvia");
 
-                // Mostrar estado por parcelas
-                System.out.println("\n========== ESTADO DE PARCELAS ==========");
-                System.out.printf("%-8s | %-12s | %-10s | %-15s | %-12s%n",
-                        "Parcela", "Humedad (%)", "INR", "Electrovalvula", "Temporizador");
-                System.out.println("------------------------------------------------------------------");
-
-                for (int i = 0; i < 5; i++) {
-                    double humedad = listaParcelas.get(i).getHumedad();
-                    double inr = listaParcelas.get(i).getInr();
-                    boolean estaAbierta = listaParcelas.get(i).getElectrovalvula().estaAbierta();
-                    boolean temporizadorActivo = listaParcelas.get(i).getEstadoTemporizador() == 0;
-
-                    System.out.printf("%-8d | %-12.2f | %-10.3f | %-15s | %-12s%n",
-                            i,
-                            humedad,
-                            inr,
-                            (estaAbierta ? "ABIERTA" : "CERRADA"),
-                            (temporizadorActivo ? "ACTIVO" : "APAGADO"));
-                }
-
-                System.out.println("\n========== ESTADO GENERAL ==========");
-                System.out.printf("  Temperatura : %.2f °C%n", this.temperatura);
-                System.out.printf("  Radiación   : %.2f W/m²%n", this.radiacion);
-                System.out.printf("  Se necesita agua? : %s%n", (demandaActual ? "Sí" : "No"));
-                System.out.printf("  Lloviendo   : %s%n", (this.lluvia ? "Sí" : "No"));
-                System.out.println("=====================================\n");
+                mostrarEstadoParcelas();
+                mostrarEstadoGeneral(demandaActual);
 
             } catch (RemoteException e) {
-                throw new RuntimeException(e);
+                System.err.println("Error RMI en HiloControlador: " + e.getMessage());
             }
+
             try {
-                sleep(1000);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                System.err.println("HiloControlador interrumpido");
+                Thread.currentThread().interrupt();
             }
         }
     }
 
     /**
-     * Método privado que verifica si alguna de las parcelas necesita agua.
+     * Método remoto invocado por el servidor de exclusión mutua cuando se otorga el token.
+     * <p>
+     * Al recibir el token, el controlador abre la válvula maestra para permitir el
+     * riego de las parcelas.
+     * </p>
      *
-     * @return true si al menos una parcela tiene la bandera necesitaAgua activa.
+     * @throws RemoteException si ocurre un error en la comunicación remota.
+     */
+    @Override
+    public void RecibirToken() throws RemoteException {
+        System.out.println("Token recibido para recurso " + RECURSO_BOMBA);
+        this.tieneAccesoBomba = true;
+        valvulaMaestraParcelas.abrirValvula();
+    }
+
+    /**
+     * Determina si alguna de las parcelas necesita agua.
+     *
+     * @return {@code true} si al menos una parcela requiere riego; {@code false} en caso contrario.
      */
     private boolean algunaParcelaNecesitaAgua() {
         for (HiloParcela parcela : listaParcelas) {
@@ -215,5 +229,44 @@ public class HiloControlador extends Thread {
             }
         }
         return false;
+    }
+
+    /**
+     * Muestra en consola el estado actual de todas las parcelas en formato tabular.
+     */
+    private void mostrarEstadoParcelas() throws RemoteException {
+        System.out.println("\n========== ESTADO DE PARCELAS ==========");
+        System.out.printf("%-8s | %-12s | %-10s | %-15s | %-12s%n",
+                "Parcela", "Humedad (%)", "INR", "Electrovalvula", "Temporizador");
+        System.out.println("------------------------------------------------------------------");
+
+        for (int i = 0; i < listaParcelas.size(); i++) {
+            HiloParcela parcela = listaParcelas.get(i);
+            double humedad = parcela.getHumedad();
+            double inr = parcela.getInr();
+            boolean estaAbierta = parcela.getElectrovalvula().estaAbierta();
+            boolean temporizadorActivo = parcela.getEstadoTemporizador() == 0;
+
+            System.out.printf("%-8d | %-12.2f | %-10.3f | %-15s | %-12s%n",
+                    i,
+                    humedad,
+                    inr,
+                    (estaAbierta ? "ABIERTA" : "CERRADA"),
+                    (temporizadorActivo ? "ACTIVO" : "APAGADO"));
+        }
+    }
+
+    /**
+     * Muestra el estado general de las variables ambientales y la demanda de agua.
+     *
+     * @param demandaActual valor booleano que indica si existe demanda en el ciclo actual.
+     */
+    private void mostrarEstadoGeneral(boolean demandaActual) {
+        System.out.println("\n========== ESTADO GENERAL ==========");
+        System.out.printf("  Temperatura : %.2f °C%n", this.temperatura);
+        System.out.printf("  Radiación   : %.2f W/m²%n", this.radiacion);
+        System.out.printf("  Se necesita agua? : %s%n", (demandaActual ? "Sí" : "No"));
+        System.out.printf("  Lloviendo   : %s%n", (this.lluvia ? "Sí" : "No"));
+        System.out.println("=====================================\n");
     }
 }

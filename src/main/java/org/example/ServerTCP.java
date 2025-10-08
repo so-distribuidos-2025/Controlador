@@ -28,7 +28,7 @@ public class ServerTCP extends Thread {
         try {
             ServerSocket server = new ServerSocket(20000);
             HiloControlador hiloControlador = new HiloControlador(estado);
-            hiloControlador.start();
+            hiloControlador.run();
             while (true) {
                 Socket s = server.accept();
                 HiloConexionTCP handler = new HiloConexionTCP(s, estado, hiloControlador);
