@@ -106,7 +106,9 @@ public class HiloParcela extends Thread {
             } else {
                 valvulaHost = String.format(valvulaHost, id);
             }
-            int puerto = 21000 + id;
+            String basePortEnv = System.getenv("VALVULA_BASE_PORT");
+            int basePort = (basePortEnv != null) ? Integer.parseInt(basePortEnv) : 21000;
+            int puerto = basePort + id;
             String direccionRMI = String.format("rmi://" + valvulaHost + ":%d/ServerRMI", puerto);
             this.electrovalvula = (IServerRMI) Naming.lookup(direccionRMI);
             System.out.println("Conectado a la electrovalvula" + id);

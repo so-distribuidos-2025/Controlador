@@ -26,7 +26,9 @@ public class ServerTCP extends Thread {
         ConcurrentHashMap<String, Object> estado = new ConcurrentHashMap<>();
 
         try {
-            ServerSocket server = new ServerSocket(20000);
+            String portEnv = System.getenv("CONTROLADOR_PORT");
+            int port = (portEnv != null) ? Integer.parseInt(portEnv) : 20000;
+            ServerSocket server = new ServerSocket(port);
             HiloControlador hiloControlador = new HiloControlador(estado);
             hiloControlador.run();
             while (true) {
