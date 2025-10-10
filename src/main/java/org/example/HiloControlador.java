@@ -42,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class HiloControlador extends UnicastRemoteObject implements IClienteEM, Runnable {
 
+
     /**
      * Estructura compartida que almacena variables ambientales globales (temperatura, radiación y lluvia).
      */
@@ -116,12 +117,21 @@ public class HiloControlador extends UnicastRemoteObject implements IClienteEM, 
         }
 
         try {
+            String exclusionHost = System.getenv("EXCLUSION_HOST");
+            if (exclusionHost == null) {
+                exclusionHost = "localhost";
+            }
             // Conexión con el servicio de exclusión mutua (token por recurso)
-            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://localhost:9000/ExclusionMutua");
+            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://"+exclusionHost+":9000/ExclusionMutua");
             System.out.println("Controlador conectado al servicio de Exclusión Mutua (adaptado).");
 
+            String valvulaHost = System.getenv("VALVULA_MAESTRA_HOST");
+            if (valvulaHost == null) {
+                valvulaHost = "localhost";
+            }
+
             // Conexión con la válvula maestra de parcelas
-            this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://localhost:21005/ServerRMI");
+            this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://"+valvulaHost+":21005/ServerRMI");
             System.out.println("Controlador conectado a la Válvula Maestra de Parcelas.");
 
         } catch (NotBoundException | MalformedURLException | RemoteException e) {

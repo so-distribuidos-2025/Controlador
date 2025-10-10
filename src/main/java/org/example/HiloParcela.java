@@ -100,8 +100,14 @@ public class HiloParcela extends Thread {
     public HiloParcela(int id,
                        ConcurrentHashMap estado) {
         try {
+            String valvulaHost = System.getenv("VALVULA_HOST");
+            if (valvulaHost == null) {
+                valvulaHost = "localhost";
+            } else {
+                valvulaHost = String.format(valvulaHost, id);
+            }
             int puerto = 21000 + id;
-            String direccionRMI = String.format("rmi://localhost:%d/ServerRMI", puerto);
+            String direccionRMI = String.format("rmi://" + valvulaHost + ":%d/ServerRMI", puerto);
             this.electrovalvula = (IServerRMI) Naming.lookup(direccionRMI);
             System.out.println("Conectado a la electrovalvula" + id);
         } catch (NotBoundException | MalformedURLException | RemoteException e) {
@@ -161,6 +167,7 @@ public class HiloParcela extends Thread {
 
     /**
      * Permite al HiloControlador saber si esta parcela ha solicitado agua.
+     *
      * @return true si la parcela necesita agua, false en caso contrario.
      */
     public boolean necesitaAgua() {
