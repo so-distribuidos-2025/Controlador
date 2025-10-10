@@ -121,17 +121,23 @@ public class HiloControlador extends UnicastRemoteObject implements IClienteEM, 
             if (exclusionHost == null) {
                 exclusionHost = "localhost";
             }
+
+            String portEnv = System.getenv("EXCLUSION_PORT");
+            int port = (portEnv != null) ? Integer.parseInt(portEnv) : 10000;
+
             // Conexión con el servicio de exclusión mutua (token por recurso)
-            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://"+exclusionHost+":9000/ExclusionMutua");
+            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://"+exclusionHost+":"+port+"/ExclusionMutua");
             System.out.println("Controlador conectado al servicio de Exclusión Mutua (adaptado).");
 
             String valvulaHost = System.getenv("VALVULA_MAESTRA_HOST");
             if (valvulaHost == null) {
                 valvulaHost = "localhost";
             }
+            String valvulaEnv = System.getenv("VALVULA_MAESTRA_PORT");
+            int valvulaPort = (valvulaEnv != null) ? Integer.parseInt(valvulaEnv) : 21005;
 
             // Conexión con la válvula maestra de parcelas
-            this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://"+valvulaHost+":21005/ServerRMI");
+            this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://"+valvulaHost+":"+valvulaPort+"/ServerRMI");
             System.out.println("Controlador conectado a la Válvula Maestra de Parcelas.");
 
         } catch (NotBoundException | MalformedURLException | RemoteException e) {
