@@ -1,8 +1,8 @@
 package org.example;
 
 import interfaces.IServerRMI;
-import interfaces.IServicioExclusionMutua;
-import interfaces.IClienteEM;
+import com.sistdist.interfaces.IServicioExclusionMutua;
+import com.sistdist.interfaces.IClienteEM;
 import java.io.IOException;
 
 import java.net.MalformedURLException;
@@ -124,10 +124,11 @@ public class HiloControlador extends UnicastRemoteObject implements IClienteEM, 
 
             String portEnv = System.getenv("EXCLUSION_PORT");
             int port = (portEnv != null) ? Integer.parseInt(portEnv) : 10000;
+            System.out.println("rmi://"+exclusionHost+":"+port+"/servidorCentralEM");
 
             // Conexión con el servicio de exclusión mutua (token por recurso)
-            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://"+exclusionHost+":"+port+"/ExclusionMutua");
-            System.out.println("Controlador conectado al servicio de Exclusión Mutua (adaptado).");
+            this.exclusionService = (IServicioExclusionMutua) Naming.lookup("rmi://"+exclusionHost+":"+port+"/servidorCentralEM");
+            System.out.println("Controlador conectado al servicio de Exclusión Mutua.");
 
             String valvulaHost = System.getenv("VALVULA_MAESTRA_HOST");
             if (valvulaHost == null) {
@@ -140,13 +141,12 @@ public class HiloControlador extends UnicastRemoteObject implements IClienteEM, 
             this.valvulaMaestraParcelas = (IServerRMI) Naming.lookup("rmi://"+valvulaHost+":"+valvulaPort+"/ServerRMI");
             System.out.println("Controlador conectado a la Válvula Maestra de Parcelas.");
 
-        } catch (NotBoundException | MalformedURLException | RemoteException e) {
+        } catch (NotBoundException e) {
             System.err.println("Error crítico al conectar con servicios RMI: " + e.getMessage());
             throw new RuntimeException(e);
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
         }
-
-        // Iniciar hilo principal de control
-        new Thread(this).start();
     }
 
     /**

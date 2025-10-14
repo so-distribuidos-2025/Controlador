@@ -200,6 +200,7 @@ public class HiloParcela extends Thread {
                 // Asegurarse de que los sensores están conectados antes de hacer nada
                 if (this.hiloHumedad == null || this.hiloTiempo == null) {
                     Thread.sleep(2000); // Esperar a que se conecten
+                    System.out.println("Hilo " + id + " esperando sensor de humedad o temporizador");
                     continue;
                 }
 

@@ -30,7 +30,10 @@ public class ServerTCP extends Thread {
             int port = (portEnv != null) ? Integer.parseInt(portEnv) : 20000;
             ServerSocket server = new ServerSocket(port);
             HiloControlador hiloControlador = new HiloControlador(estado);
-            hiloControlador.run();
+
+            Thread controllerThread = new Thread(hiloControlador);
+            controllerThread.start();
+
             while (true) {
                 Socket s = server.accept();
                 HiloConexionTCP handler = new HiloConexionTCP(s, estado, hiloControlador);
